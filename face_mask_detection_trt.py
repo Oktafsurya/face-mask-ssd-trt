@@ -8,9 +8,9 @@ import cv2
 import numpy as np
 import tensorrt as trt
 
-import common
-from utils.utils import preprocess_img, postprocess_img
-from utils.trt_utils import result_handler
+from utils import trt_utils
+#from utils.utils import preprocess_img, postprocess_img
+#from utils.trt_utils import result_handler
 
 
 TRT_LOGGER = trt.Logger(trt.Logger.INFO)
@@ -139,35 +139,36 @@ def main():
         normalized_im = normalize(resized_im)
         normalized_im = np.expand_dims(normalized_im, axis=0)
 
-        ret = np.asarray(tensor, dtype=str(precision))
-        ret = np.expand_dims(ret, axis=0)
+        # ret = np.asarray(tensor, dtype=str(precision))
+        # ret = np.expand_dims(ret, axis=0)
 
         # inference.
         start = time.perf_counter()
-        inputs, outputs, bindings, stream = common.allocate_buffers(engine)
+        inputs, outputs, bindings, stream = trt_utils.allocate_buffers(engine)
+        # result_handler(inference, **kwargs)
         inputs[0].host = normalized_im
-        outputs = common.do_inference_v2(
+        outputs = trt_utils.do_inference_v2(
             context, bindings=bindings, inputs=inputs, outputs=outputs, stream=stream
         )
 
         inference_time = (time.perf_counter() - start) * 1000
 
-        boxs = outputs[1].reshape([int(outputs[0]), 4])
-        for index, box in enumerate(boxs):
-            if outputs[2][index] < args.scoreThreshold:
-                continue
+        # boxs = outputs[1].reshape([int(outputs[0]), 4])
+        # for index, box in enumerate(boxs):
+        #     if outputs[2][index] < args.scoreThreshold:
+        #         continue
 
-            # Draw bounding box.
-            class_id = int(outputs[3][index])
-            score = outputs[2][index]
-            caption = "{0}({1:.2f})".format(labels[class_id - 1], score)
+        #     # Draw bounding box.
+        #     class_id = int(outputs[3][index])
+        #     score = outputs[2][index]
+        #     caption = "{0}({1:.2f})".format(labels[class_id - 1], score)
 
-            xmin = int(box[0] * w)
-            xmax = int(box[2] * w)
-            ymin = int(box[1] * h)
-            ymax = int(box[3] * h)
-            draw_rectangle(frame, (xmin, ymin, xmax, ymax), colors[class_id])
-            draw_caption(frame, (xmin, ymin - 10), caption)
+        #     xmin = int(box[0] * w)
+        #     xmax = int(box[2] * w)
+        #     ymin = int(box[1] * h)
+        #     ymax = int(box[3] * h)
+        #     draw_rectangle(frame, (xmin, ymin, xmax, ymax), colors[class_id])
+        #     draw_caption(frame, (xmin, ymin - 10), caption)
 
         # Calc fps.
         elapsed_list.append(inference_time)
@@ -182,20 +183,20 @@ def main():
         display_text = model_name + " " + fps_text + avg_text
         draw_caption(frame, (10, 30), display_text)
 
-        # Output video file
-        if video_writer is not None:
-            video_writer.write(frame)
+        # # Output video file
+        # if video_writer is not None:
+        #     video_writer.write(frame)
 
-        # Display
-        cv2.imshow(WINDOW_NAME, frame)
-        if cv2.waitKey(10) & 0xFF == ord("q"):
-            break
+    #     # Display
+    #     cv2.imshow(WINDOW_NAME, frame)
+    #     if cv2.waitKey(10) & 0xFF == ord("q"):
+    #         break
 
-    # When everything done, release the window
+    # # When everything done, release the window
     cap.release()
-    if video_writer is not None:
-        video_writer.release()
-    cv2.destroyAllWindows()
+    # if video_writer is not None:
+    #     video_writer.release()
+    # cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
