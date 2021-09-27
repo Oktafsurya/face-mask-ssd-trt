@@ -1,4 +1,5 @@
- import os
+import argparse
+import os
 import tensorrt as trt
 
 from onnx import ModelProto
@@ -35,6 +36,7 @@ class ONNX2TRT:
             config.set_flag(trt.BuilderFlag.INT8)
         else:
             print(TypeError, "[INFO] Expected precision: fp16, fp32 or int8")
+            raise Exception
 
         print("Loading ONNX file from path {}...".format(self.input_path))
         if not os.path.exists(self.input_path):
@@ -78,3 +80,17 @@ class ONNX2TRT:
         print("[INFO] Completed creating Engine")
         with open(self.output_path, "wb") as f:
             f.write(engine.serialize())
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", help="File path of onnx model.", required=True)
+    parser.add_argument(
+        "--output", help="File path to save trt file output", required=True, type=str
+    )
+    parser.add_argument(
+        "--precision", help="precision to be used", required=True, type=str
+    )
+
+    args = parser.parse_args()
+    converter = ONNX2TRT(args.model,args.output, args.precision)
+    converter.convert()
