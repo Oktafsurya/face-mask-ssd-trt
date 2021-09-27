@@ -1,20 +1,16 @@
 import numpy as np 
 import cv2
+import onnxruntime as ort
 
-
-def preprocess_img(input_frame, input_layer:str):
-
-    preprocessed_input = {input_layer: None}
+def preprocess_img(input_frame):
+    input_frame = cv2.cvtColor(input_frame, cv2.COLOR_BGR2RGB)
     input_frame = cv2.resize(input_frame, (300,300), interpolation = cv2.INTER_AREA)
     input_frame = np.array(input_frame, dtype='float32', order='C')
     input_frame -= np.array([127, 127, 127])
     input_frame /= 128
     input_frame = input_frame.transpose((2, 0, 1))
-
-    print('[INFO] input_frame.shape:', input_frame.shape)
-    
-    preprocessed_input[input_layer] = input_frame
-    return {'preprocessed_input': preprocessed_input}
+    input_frame = np.expand_dims(input_frame, axis=0)
+    return input_frame
 
 def box_to_xyxy(bboxes, width, heigh):
     #x1 = (bboxes[1] - bboxes[3]/2)*width
@@ -87,7 +83,7 @@ def postprocess_img(img, out_detect, out_scores, label_list):
 
     out_detect = out_detect.reshape((3000,4))
     out_scores_ori = out_scores.reshape((3000,len(label_list)))
-    out_scores_ori = np.amax(out_scores_ori[:,1:], axis=1)
+    out_scores = np.amax(out_scores_ori[:,1:], axis=1)
     out_scores_indices = np.argsort(out_scores_ori[:,1:], axis=1)[:, len(label_list)-2]
     label_list = label_list[1:]
 
@@ -97,24 +93,21 @@ def postprocess_img(img, out_detect, out_scores, label_list):
     OVERLAP_THRES = 0.6
 
     out_detect = box_to_xyxy(out_detect, WIDTH, HEIGH)
-    out_detect, out_scores, out_scores_indices = nms(out_detect, out_scores, out_scores_indices, OVERLAP_THRES,  THRESHOLD)
+    out_detect, out_scores, out_scores_indices = nms(out_detect, out_scores, out_scores_indices, \
+        OVERLAP_THRES,  THRESHOLD)
 
     for idx in range(out_scores.shape[0]):
         out_detect_idx = out_detect[idx]
         out_scores_idx = out_scores[idx]
         out_scores_max_idx = out_scores_indices[idx]
         label_idx = label_list[out_scores_max_idx]
-        print('out_scores_idx:', out_scores_idx)
-        print('out_scores_max_idx:', out_scores_max_idx)
-        print('label_idx:', label_idx)
 	
         if out_scores_idx > THRESHOLD:
             text = '{} - {}%'.format(label_idx, round(out_scores_idx*100., 3))
-            print('text:', text)
             start_point = (int(out_detect_idx[0]), int(out_detect_idx[1]))
             pos_txt = (int(out_detect_idx[0]+10), int(out_detect_idx[1]+40))
             end_point = (int(out_detect_idx[2]), int(out_detect_idx[3]))
-            color = (255, 0, 0)
+            color = (0,255,0) if label_idx == 'with_mask' else (0,0,255)
             thickness = 2
             font = cv2.FONT_HERSHEY_SIMPLEX
             fontscale = 1
@@ -122,9 +115,36 @@ def postprocess_img(img, out_detect, out_scores, label_list):
             img = cv2.rectangle(img, start_point, end_point, color, thickness)
             img = cv2.putText(img, text, pos_txt, font, fontscale, color, thickness, line)
 
-    frame, inference_data = img, out_detect
-    return {'inference_data': {'frame':frame, 'data':inference_data}}
+    return img
 
+def dissect_onnx(onnx_file):
+    interim = ort.InferenceSession(onnx_file)
+    model_input_attrs = {'name': None, 'shape': None, 'type': None}
+    model_output_attrs = {'name': None, 'shape': None, 'type': None}
+
+    print("\n[MODEL INPUT]:")
+    for data in interim.get_inputs():
+        print("--------------------------------------------------")
+        print("Input name: ", data.name)
+        print("Input shape: ", data.shape)
+        print("Input type: ", data.type)
+        print("--------------------------------------------------")
+        model_input_attrs['name'].append(data.name)
+        model_input_attrs['shape'].append(data.shape)
+        model_input_attrs['type'].append(data.type)
+
+    print("\n[MODEL OUTPUT]:")
+    for data in interim.get_outputs():
+        print("--------------------------------------------------")
+        print("Output name: ", data.name)
+        print("Output shape: ", data.shape)
+        print("Output type: ", data.type)
+        print("--------------------------------------------------")
+        model_output_attrs['name'].append(data.name)
+        model_output_attrs['shape'].append(data.shape)
+        model_output_attrs['type'].append(data.type)
+
+    return model_input_attrs, model_output_attrs
 
 
 
