@@ -176,3 +176,57 @@ bool FaceMaskTRT::infer()
 
     return true;
 }
+
+int main(int argc, char** argv)
+{
+    cv::VideoCapture capture();
+    cv::Mat frame;
+    while (1) {
+        if (!capture.isOpened()) {
+            break; //do some logging here or something else - webcam not available
+        }
+
+        //Create image frames from capture
+        capture >> frame;
+
+        if (!frame.empty()) {
+            //do something with your image (e.g. provide it)
+            lastImage = frame.clone();
+        }
+    }
+
+    samplesCommon::Args args;
+    bool argsOK = samplesCommon::parseArgs(args, argc, argv);
+    if (!argsOK)
+    {
+        sample::gLogError << "Invalid arguments" << std::endl;
+        printHelpInfo();
+        return EXIT_FAILURE;
+    }
+    if (args.help)
+    {
+        printHelpInfo();
+        return EXIT_SUCCESS;
+    }
+
+    auto sampleTest = sample::gLogger.defineTest(gSampleName, argc, argv);
+
+    sample::gLogger.reportTestStart(sampleTest);
+
+    SampleOnnxMNIST sample(initializeSampleParams(args));
+
+    sample::gLogInfo << "Building and running a GPU inference engine for Onnx" << std::endl;
+
+    if (!sample.build())
+    {
+        return sample::gLogger.reportFail(sampleTest);
+    }
+    if (!sample.infer())
+    {
+        return sample::gLogger.reportFail(sampleTest);
+    }
+
+    return sample::gLogger.reportPass(sampleTest);
+}
+
+}
