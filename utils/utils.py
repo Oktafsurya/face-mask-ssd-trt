@@ -82,9 +82,14 @@ def nms(bounding_boxes, confidence_score, conf_scores_idx, overlap_thres, conf_t
 def postprocess_img(img, out_detect, out_scores, label_list):
 
     out_detect = out_detect.reshape((3000,4))
-    out_scores_ori = out_scores.reshape((3000,len(label_list)))
-    out_scores = np.amax(out_scores_ori[:,1:], axis=1)
-    out_scores_indices = np.argsort(out_scores_ori[:,1:], axis=1)[:, len(label_list)-2]
+    out_scores_ori = out_scores.reshape((3000,len(label_list)))[:, 1:]
+
+    sorted_index = np.argsort(np.sort(out_scores_ori)[:,-1:], axis=0).reshape(-1)
+    out_scores_ori = out_scores_ori[sorted_index][300:]
+    out_detect = out_detect[sorted_index][300:]
+
+    out_scores = np.amax(out_scores_ori, axis=1) 
+    out_scores_indices = np.argsort(out_scores_ori, axis=1)[:, len(label_list)-2]
     label_list = label_list[1:]
 
     WIDTH = img.shape[0]
