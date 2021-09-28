@@ -1,5 +1,3 @@
-//----------------------------------------------------------------------------
-//----------------------------------------------------------------------------
 std::vector<std::string> load_labels(const std::string& fileName)
 {
     std::ifstream ins(fileName);
@@ -20,8 +18,6 @@ std::vector<std::string> load_labels(const std::string& fileName)
     return labels;
 }
 
-//----------------------------------------------------------------------------
-//----------------------------------------------------------------------------
 torch::Tensor read_image(const std::string& imageName)
 {
     cv::Mat img = cv::imread(imageName);
@@ -46,9 +42,6 @@ torch::Tensor read_image(const std::string& imageName)
     return img_tensor.clone();
 }
 
-
-//----------------------------------------------------------------------------
-//----------------------------------------------------------------------------
 cv::Mat crop_center(const cv::Mat &img)
 {
     const int rows = img.rows;
