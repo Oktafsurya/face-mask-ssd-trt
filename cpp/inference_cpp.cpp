@@ -12,6 +12,8 @@
 #include <iostream>
 #include <sstream>
 
+using samplesCommon::SampleUniquePtr;
+
 class FaceMaskTRT
 {
 public:
@@ -177,6 +179,45 @@ bool FaceMaskTRT::infer()
     return true;
 }
 
+samplesCommon::OnnxSampleParams initializeSampleParams(const samplesCommon::Args& args)
+{
+    samplesCommon::OnnxSampleParams params;
+    if (args.dataDirs.empty()) 
+    {
+        params.dataDirs.push_back("data/mnist/");
+        params.dataDirs.push_back("data/samples/mnist/");
+    }
+    else 
+    {
+        params.dataDirs = args.dataDirs;
+    }
+    params.onnxFileName = "mnist.onnx";
+    params.inputTensorNames.push_back("Input3");
+    params.outputTensorNames.push_back("Plus214_Output_0");
+    params.dlaCore = args.useDLACore;
+    params.int8 = args.runInInt8;
+    params.fp16 = args.runInFp16;
+
+    return params;
+}
+
+void printHelpInfo()
+{
+    std::cout
+        << "Usage: ./sample_onnx_mnist [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]"
+        << std::endl;
+    std::cout << "--help          Display help information" << std::endl;
+    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used "
+                 "multiple times to add multiple directories. If no data directories are given, the default is to use "
+                 "(data/samples/mnist/, data/mnist/)"
+              << std::endl;
+    std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, "
+                 "where n is the number of DLA engines on the platform."
+              << std::endl;
+    std::cout << "--int8          Run in Int8 mode." << std::endl;
+    std::cout << "--fp16          Run in FP16 mode." << std::endl;
+}
+
 int main(int argc, char** argv)
 {
     cv::VideoCapture capture();
@@ -213,7 +254,7 @@ int main(int argc, char** argv)
 
     sample::gLogger.reportTestStart(sampleTest);
 
-    SampleOnnxMNIST sample(initializeSampleParams(args));
+    FaceMaskTRT sample(initializeSampleParams(args));
 
     sample::gLogInfo << "Building and running a GPU inference engine for Onnx" << std::endl;
 
