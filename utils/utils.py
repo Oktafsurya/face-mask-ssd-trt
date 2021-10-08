@@ -112,7 +112,8 @@ def postprocess_img(img, out_detect, out_scores, label_list):
             start_point = (int(out_detect_idx[0]), int(out_detect_idx[1]))
             pos_txt = (int(out_detect_idx[0]+10), int(out_detect_idx[1]+40))
             end_point = (int(out_detect_idx[2]), int(out_detect_idx[3]))
-            color = (0,255,0) if label_idx == 'with_mask' else (0,0,255)
+            #color = (0,255,0) if label_idx == 'with_mask' else (0,0,255)
+            color = (0,255,0) if label_idx == 'drink bottle' else (0,0,255)
             thickness = 2
             font = cv2.FONT_HERSHEY_SIMPLEX
             fontscale = 1
