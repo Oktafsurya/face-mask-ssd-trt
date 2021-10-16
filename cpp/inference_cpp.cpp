@@ -42,103 +42,47 @@ private:
     bool verifyOutput(const samplesCommon::BufferManager& buffers);
 };
 
-bool FaceMaskTRT::build()
+// Returns empty string iff can't read the file
+string readBuffer(string const& path)
 {
-    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
-    if (!builder)
+    string buffer;
+    ifstream stream(path.c_str(), ios::binary);
+
+    if (stream)
     {
-        return false;
+        stream >> noskipws;
+        copy(istream_iterator<char>(stream), istream_iterator<char>(), back_inserter(buffer));
     }
 
-    const auto explicitBatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-    auto network = SampleUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
-    if (!network)
-    {
-        return false;
-    }
-
-    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
-    if (!config)
-    {
-        return false;
-    }
-
-    auto parser
-        = SampleUniquePtr<nvonnxparser::IParser>(nvonnxparser::createParser(*network, sample::gLogger.getTRTLogger()));
-    if (!parser)
-    {
-        return false;
-    }
-
-    auto constructed = constructNetwork(builder, network, config, parser);
-    if (!constructed)
-    {
-        return false;
-    }
-
-    // CUDA stream used for profiling by the builder.
-    auto profileStream = samplesCommon::makeCudaStream();
-    if (!profileStream)
-    {
-        return false;
-    }
-    config->setProfileStream(*profileStream);
-
-    SampleUniquePtr<IHostMemory> plan{builder->buildSerializedNetwork(*network, *config)};
-    if (!plan)
-    {
-        return false;
-    }
-
-    SampleUniquePtr<IRuntime> runtime{createInferRuntime(sample::gLogger.getTRTLogger())};
-    if (!runtime)
-    {
-        return false;
-    }
-
-    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        runtime->deserializeCudaEngine(plan->data(), plan->size()), samplesCommon::InferDeleter());
-    if (!mEngine)
-    {
-        return false;
-    }
-
-    ASSERT(network->getNbInputs() == 1);
-    mInputDims = network->getInput(0)->getDimensions();
-    ASSERT(mInputDims.nbDims == 4);
-
-    ASSERT(network->getNbOutputs() == 1);
-    mOutputDims = network->getOutput(0)->getDimensions();
-    ASSERT(mOutputDims.nbDims == 2);
-
-    return true;
+    return buffer;
 }
 
-bool FaceMaskTRT::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
-    SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
-    SampleUniquePtr<nvonnxparser::IParser>& parser)
+ICudaEngine* getCudaEngine(string const& TrtModelPath)
 {
-    auto parsed = parser->parseFromFile(locateFile(mParams.onnxFileName, mParams.dataDirs).c_str(),
-        static_cast<int>(sample::gLogger.getReportableSeverity()));
-    if (!parsed)
+    string enginePath{TrtModelPath};
+    ICudaEngine* engine{nullptr};
+
+    string buffer = readBuffer(enginePath);
+    if (buffer.size())
     {
-        return false;
+        // try to deserialize engine
+        unique_ptr<IRuntime, Destroy> runtime{createInferRuntime(gLogger)};
+        engine = runtime->deserializeCudaEngine(buffer.data(), buffer.size(), nullptr);
     }
 
-    config->setMaxWorkspaceSize(16_MiB);
-    if (mParams.fp16)
+    if (!engine)
     {
-        config->setFlag(BuilderFlag::kFP16);
-    }
-    if (mParams.int8)
-    {
-        config->setFlag(BuilderFlag::kINT8);
-        samplesCommon::setAllDynamicRanges(network.get(), 127.0f, 127.0f);
-    }
+        // Fallback to creating engine from scratch
+        engine = createCudaEngine(onnxModelPath, batchSize);
 
-    samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
-
-    return true;
+        if (engine)
+        {
+            unique_ptr<IHostMemory, Destroy> engine_plan{engine->serialize()};
+            // try to save engine for future uses
+            writeBuffer(engine_plan->data(), engine_plan->size(), enginePath);
+        }
+    }
+    return engine;
 }
 
 bool FaceMaskTRT::infer()

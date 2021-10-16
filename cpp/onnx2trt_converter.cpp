@@ -1,9 +1,24 @@
 #include <NvInfer.h>
 #include <NvOnnxParser.h>
+#include <iostream>
+#include <string>
+#include <memory>
 
 using namespace nvinfer1;
 using namespace std;
 using namespace nvonnxparser;
+
+struct Destroy
+{
+    template <class T>
+    void operator()(T* obj) const
+    {
+        if (obj)
+        {
+            obj->destroy();
+        }
+    }
+};
 
 ICudaEngine* createCudaEngine(string const& onnxModelPath, int batchSize)
 { 
@@ -19,14 +34,16 @@ ICudaEngine* createCudaEngine(string const& onnxModelPath, int batchSize)
         return nullptr;
     }
 
+    constexpr size_t MAX_WORKSPACE_SIZE = 1ULL << 30; // 1 GB
+
     config->setMaxWorkspaceSize(MAX_WORKSPACE_SIZE);
     builder->setFp16Mode(builder->platformHasFastFp16());
     builder->setMaxBatchSize(batchSize);
     
     auto profile = builder->createOptimizationProfile();
-    profile->setDimensions(network->getInput(0)->getName(), OptProfileSelector::kMIN, Dims4{1, 3, 256 , 256});
-    profile->setDimensions(network->getInput(0)->getName(), OptProfileSelector::kOPT, Dims4{1, 3, 256 , 256});
-    profile->setDimensions(network->getInput(0)->getName(), OptProfileSelector::kMAX, Dims4{32, 3, 256 , 256});    
+    profile->setDimensions(network->getInput(0)->getName(), OptProfileSelector::kMIN, Dims4{1, 3, 300 , 300});
+    profile->setDimensions(network->getInput(0)->getName(), OptProfileSelector::kOPT, Dims4{1, 3, 300 , 300});
+    profile->setDimensions(network->getInput(0)->getName(), OptProfileSelector::kMAX, Dims4{32, 3, 300 , 300});    
     config->addOptimizationProfile(profile);
 
     return builder->buildEngineWithConfig(*network, *config);   
@@ -70,12 +87,12 @@ std::vector< std::string > getClassNames(const std::string& imagenet_classes)
 }
 
 int main(int argc, char** argv){
-    // ./onnx2trt_converter onnxpath filename
-    string onnxPath = argv[1]
-    string trtFilename = argv[2]
+    // command to run: ./onnx2trt_converter onnxpath trt_filename
+    string onnxPath = argv[1];
+    string trtFilename = argv[2];
     ICudaEngine* cuda_engine{nullptr};
     int batchSize = 1;
 
-    cuda_engine = createCudaEngine(onnxPath, batchSize)
-    saveEngine(cuda_engine, trtFilename)
+    cuda_engine = createCudaEngine(onnxPath, batchSize);
+    saveEngine(cuda_engine, trtFilename);
 }
