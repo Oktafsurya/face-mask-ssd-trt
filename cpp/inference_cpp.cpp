@@ -123,6 +123,23 @@ bool FaceMaskTRT::infer()
     return true;
 }
 
+std::vector< std::string > getClassNames(const std::string& imagenet_classes)
+{
+    std::ifstream classes_file(imagenet_classes);
+    std::vector< std::string > classes;
+    if (!classes_file.good())
+    {
+        std::cerr << "ERROR: can't read file with classes names.n";
+        return classes;
+    }
+    std::string class_name;
+    while (std::getline(classes_file, class_name))
+    {
+        classes.push_back(class_name);
+    }
+    return classes;
+}
+
 samplesCommon::OnnxSampleParams initializeSampleParams(const samplesCommon::Args& args)
 {
     samplesCommon::OnnxSampleParams params;
