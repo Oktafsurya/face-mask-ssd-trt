@@ -98,9 +98,9 @@ void createCudaEngine(string const& onnxModelPath, int batchSize)
 }
 
 int main(int argc, char** argv){
-    // command to run: ./onnx2trt_converter onnxpath batchSize
+    // command to run: ./onnx2trt_converter onnxpath
     string onnxPath = argv[1];
-    int batchSize = argv[2];
+    int batchSize = 1;
     ICudaEngine* cuda_engine{nullptr};
     createCudaEngine(onnxPath, batchSize);
 }
