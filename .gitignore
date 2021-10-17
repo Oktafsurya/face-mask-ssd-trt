@@ -1,6 +1,6 @@
 .git/
 
-build
+/cpp/build
 dist
 *.egg-info
 *.egg/
